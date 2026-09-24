@@ -1,81 +1,189 @@
-## Local File Sharing Servers
-A curated collection of quick, lightweight, and awesome local file-sharing servers to spin up inside any directory. Ideal for transferring files between devices on the same network or hosting temporary web interfaces.
-------------------------------
-## 🚀 1. Updog
-A beautifully simple, Python-based replacement for Python's built-in HTTP server that features an elegant UI and effortless file uploading.
-## Installation
-No global installation required if you use uv. If you prefer a traditional setup via pip:
+# Local file sharing servers
 
-pip install updog
+A short list of lightweight tools for sharing a folder on your LAN. Useful when you need to move files between devices, or spin up a temporary download and upload page, without standing up a full file server.
 
-## Usage
-Run the following command in the directory you want to share:
+Pick one, `cd` into the folder you want to share, and run the command. Then open the printed URL from another device on the same network.
 
-uvx updog -p 8080
+> These tools listen on your network interface. Treat them as temporary. Prefer a password, do not port-forward them, and stop the process when you are done.
 
+## Which one should I use?
 
-* Port: 8080
-* Features: Supports file uploads through the web interface, basic authentication, and cleaner logging.
+| Tool | Best for | Uploads | Install weight |
+| --- | --- | --- | --- |
+| [Updog](#updog) | A nicer Python HTTP server, fast to start | Yes | Tiny (`uv` or `pip`) |
+| [Miniserve](#miniserve) | Fast transfers, QR code, search | Optional | One binary |
+| [File Browser](#file-browser) | A small private Drive-style UI | Yes, with users | Docker |
+| [Droopy](#droopy) | "Just let people upload files here" | Upload only | Tiny (`uv` or `pip`) |
 
-------------------------------
-## 📂 2. Filebrowser
-The ultimate option if you want a fully functional web file manager. It provides a desktop-like experience resembling a private Google Drive or Dropbox instance.
-## Installation
-Ensure you have Docker installed on your system. No further installation or binary downloads are required.
-## Usage
-Run the container and mount your current working directory ($PWD):
+Default examples below use port **8080**. Change it if that port is already taken.
 
-docker run -d -p 8080:80 -v "$PWD":/srv filebrowser/filebrowser
+## Updog
 
+A small Python server with a clean directory page and uploads. Good default when you already have Python tooling.
 
-* Port: 8080 (maps container port 80 to host port 8080)
-* Features: Responsive dark mode, grid/list file views, bulk drag-and-drop uploads, image/video gallery viewers, user authentication management, and an integrated text editor.
+### Install
 
-------------------------------
-## ⚡ 3. Miniserve
-A blazingly fast, modern CLI static file server written in Rust. It is highly optimized for performance and responsive directory listings.
-## Installation
-Since it is a compiled binary and not hosted on PyPI, install it via your system package manager:
+No install needed if you have [uv](https://docs.astral.sh/uv/):
 
-# Debian / Ubuntu
-sudo apt install miniserve
+```bash
+uvx updog --help
+```
 
-## Usage
-To serve your current directory (.) and enable upload privileges, use:
+Or install it for repeated use:
 
-miniserve -u -p 8080 .
+```bash
+pipx install updog
+# or: uv tool install updog
+```
 
+### Share this folder
 
-* Port: 8080
-* Flags: -u explicitly enables the upload form.
-* Features: Automatic QR code generation for quick mobile access, code syntax highlighting, themes, and global search filtering.
+```bash
+uvx updog --port 8080
+```
 
-------------------------------
-## 💧 4. Droopy
-An upload-first, extremely lightweight Python utility designed purely for letting other machines upload assets to your computer via a simple, un-cluttered interface.
-## Installation
-Can be run instantly via uv or installed using pip:
+With a password:
 
-pip install droopy
+```bash
+uvx updog --port 8080 --password 'change-me'
+```
 
-## Usage
-Execute the tool directly from PyPI via uvx:
+Useful flags: `--directory`, `--password`, `--ssl`. Run `uvx updog --help` for the current list.
 
-uvx --from droopy droopy -p 8080
+## Miniserve
 
+A fast Rust file server. Nice directory listings, optional uploads, and a QR code so a phone can join without typing the IP.
 
-* Port: 8080
-* Features: Minimalist interface focused entirely on handling incoming file streams, custom HTML page configurations, and password protection options.
+### Install
 
-------------------------------
-## 📝 Quick Reference Summary
+Prefer a current binary over the distro package. Distro builds are often old.
 
-| Tool | Engine | Uploads | Best For |
-|---|---|---|---|
-| Updog | Python / PyPI | Yes | Rapid setups requiring a clean look |
-| Filebrowser | Go / Docker | Yes (Advanced) | Full cloud storage simulation and management |
-| Miniserve | Rust / APT | Yes (via -u) | High-speed transfers, QR generation, & search |
-| Droopy | Python / PyPI | Yes | Purely receiving files with zero overhead |
+```bash
+# macOS
+brew install miniserve
 
-Would you like me to add code snippets for configuring basic password protection or enabling HTTPS/SSL layers to this Markdown file?
+# Rust toolchain
+cargo install miniserve
 
+# or grab a release binary:
+# https://github.com/svenstaro/miniserve/releases
+```
+
+### Share this folder
+
+Read-only:
+
+```bash
+miniserve --port 8080 .
+```
+
+Allow uploads:
+
+```bash
+miniserve --port 8080 --upload-files .
+```
+
+With HTTP basic auth (`-a` / `--auth` can be repeated):
+
+```bash
+miniserve --port 8080 --upload-files --auth 'alice:change-me' .
+```
+
+On Debian or Ubuntu, `sudo apt install miniserve` works, but check `miniserve --version` before relying on newer flags.
+
+## File Browser
+
+A web file manager: users, drag-and-drop, previews, and a text editor. Heavier than the others, and the right pick if more than one person will use the share.
+
+### Requirements
+
+Docker (or a current File Browser binary from the project releases).
+
+### Share this folder
+
+This keeps the database and config in Docker volumes so logins survive a restart:
+
+```bash
+docker run -d \
+  --name filebrowser \
+  --restart unless-stopped \
+  -p 8080:80 \
+  -v "$PWD":/srv \
+  -v filebrowser_database:/database \
+  -v filebrowser_config:/config \
+  filebrowser/filebrowser
+```
+
+Then open `http://<your-lan-ip>:8080`.
+
+Stop and remove it when you are finished:
+
+```bash
+docker rm -f filebrowser
+```
+
+Set a real admin password in the UI before anyone else on the LAN uses it. Do not publish port 8080 on a public interface.
+
+Official docs: https://filebrowser.org/
+
+## Droopy
+
+A tiny upload page. It is for receiving files, not for browsing a directory.
+
+### Install
+
+```bash
+uvx --from droopy droopy --help
+```
+
+Or:
+
+```bash
+pipx install droopy
+```
+
+### Receive uploads in this folder
+
+Port is a positional argument. Do not pass `-p` for the port. In Droopy, `-p` sets a picture.
+
+```bash
+uvx --from droopy droopy -d . -m "Drop files here" 8080
+```
+
+`-d` is the upload directory. `-m` is the message shown on the page. HTTPS is `--ssl` plus a PEM file. See `droopy --help`.
+
+Droopy is older and less maintained than the other three. Use Updog or Miniserve if you also need downloads.
+
+## Reach it from another device
+
+1. Start the server.
+2. On the host, find the LAN address:
+
+```bash
+# Linux
+ip -4 addr show scope global
+
+# macOS
+ipconfig getifaddr en0
+```
+
+3. From the other device, open `http://<that-address>:8080`.
+4. If it does not connect, allow the port in the host firewall, and confirm both devices are on the same network (guest Wi-Fi often blocks this).
+
+Miniserve prints a QR code for this step.
+
+## Quick comparison
+
+| Tool | Start command | Uploads |
+| --- | --- | --- |
+| Updog | `uvx updog --port 8080` | Yes |
+| Miniserve | `miniserve --port 8080 --upload-files .` | Opt-in |
+| File Browser | Docker command above | Yes |
+| Droopy | `uvx --from droopy droopy -d . 8080` | Upload only |
+
+## Safety notes
+
+- Bind these to a trusted LAN. A password is not a substitute for not exposing the port to the internet.
+- Upload-enabled servers let peers write into the shared folder. Point them at a disposable directory.
+- Stop the server when the transfer is done. For File Browser, `docker rm -f filebrowser` also drops the published port.
+- For anything that must stay up, put it behind auth, TLS, and a reverse proxy. These one-liners are for short-lived shares.
